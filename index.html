@@ -1,0 +1,369 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Convert between vCard (.vcf) and CSV contact files in your browser. Paste, drop or choose a file, edit contacts in a table, and download the result — everything runs locally.">
+<title>vCard ⇄ CSV Studio — Convert</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<meta property="og:title" content="vCard ⇄ CSV Studio">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+try{var t=localStorage.getItem('vcfconv-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <div class="logo">&#8646;</div>
+      <div>
+        <h1>vCard ⇄ CSV Studio</h1>
+        <p>Offline contact converter &amp; merger. Everything runs in your browser.</p>
+      </div>
+    </a>
+    <div class="topactions">
+      <nav class="nav" aria-label="Pages">
+        <a href="index.html" class="here" aria-current="page">Convert</a>
+        <a href="compare-vcf.html">Compare vCards</a>
+        <a href="compare-csv.html">Compare CSVs</a>
+      </nav>
+      <button id="themeBtn" class="ghost" title="Toggle dark / light theme">&#9681;</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <section class="card">
+        <div class="cardhead drop" id="dropzone">
+          <h2>Input</h2>
+          <span id="detectBadge" class="badge">&mdash;</span>
+          <span class="spacer"></span>
+          <label class="filebtn">&#128193; Choose file
+            <input id="fileInput" type="file" accept=".vcf,.vcard,.csv,.tsv,.txt" hidden>
+          </label>
+          <span id="fileName" class="muted">or drop a file here, or paste below</span>
+          <button id="btnClear" class="ghost small">Clear</button>
+        </div>
+        <textarea id="src" spellcheck="false" aria-label="Input: paste vCard or CSV here"></textarea>
+        <div class="metarow"><span id="inStats" class="muted"></span></div>
+        <div class="convertrow">
+          <button id="btnToCsv" class="primary">Convert &rarr; CSV</button>
+          <button id="btnToVcf" class="primary">Convert &rarr; vCard</button>
+          <span class="spacer"></span>
+          <button id="btnSwap" class="ghost" title="Move the output into the input box">&#8646; Swap</button>
+        </div>
+        <div class="opts">
+          <label title="When a contact has several numbers, emit one CSV row per number">
+            <input type="checkbox" id="optPerPhone" checked> one row per phone
+          </label>
+          <label title="Consecutive CSV rows with the same name become one contact with several numbers">
+            <input type="checkbox" id="optMerge" checked> merge same-name rows
+          </label>
+          <span class="samplepair">
+            <button id="sampleVcf" class="small ghost">Sample vCard</button>
+            <button id="sampleCsv" class="small ghost">Sample CSV</button>
+          </span>
+        </div>
+        <div id="msg" class="msg" hidden></div>
+      </section>
+
+      <section class="card">
+        <div class="cardhead">
+          <h2>Output</h2>
+          <span id="outBadge" class="badge">&mdash;</span>
+        </div>
+        <textarea id="dst" spellcheck="false" aria-label="Converted output"></textarea>
+        <div class="metarow">
+          <button id="copyBtn">Copy</button>
+          <button id="dlBtn">Download</button>
+          <span id="outStats" class="muted"></span>
+        </div>
+      </section>
+    </div>
+    <section class="card">
+      <div class="cardhead">
+        <h2>Contacts</h2>
+        <button id="dupName" class="small filterbtn" title="Show only contacts whose name is duplicated in the list">Duplicate name</button>
+        <button id="dupPhone" class="small filterbtn" title="Show only contacts whose number is duplicated in the list">Duplicate number</button>
+        <input id="searchBox" type="search" placeholder="Filter by name or number…">
+        <span id="contactStats" class="badge">0</span>
+      </div>
+      <div class="selbar">
+        <span id="selCount" class="count">0 selected</span>
+        <button id="btnSelectAll" class="small">Select page</button>
+        <button id="btnClearSel" class="small ghost" disabled>Clear selection</button>
+        <button id="btnDelSel" class="small danger" disabled>Delete selected</button>
+        <span class="spacer"></span>
+        <button id="btnAdd" class="small primary">+ Add contact</button>
+      </div>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead>
+            <tr><th scope="col"><input type="checkbox" id="headSel" aria-label="Select all shown" title="Select all filtered rows"></th>
+            <th scope="col">#</th><th scope="col">Name</th><th scope="col">Phones</th><th scope="col">Emails</th><th scope="col">Info</th><th scope="col"><span class="muted">Actions</span></th></tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button id="pgPrev" class="small">&larr; Prev</button>
+        <span id="pgInfo">—</span>
+        <button id="pgNext" class="small">Next &rarr;</button>
+        <span class="spacer"></span>
+        <label class="muted">per page
+          <select id="pgSize"><option>10</option><option>25</option><option>50</option><option>100</option></select>
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <strong>Supported formats.</strong>
+    CSV rows look like <code>"Name,=""PHONE"""</code> — one quoted field per row, the number
+    wrapped in <code>="..."</code> so spreadsheet apps keep it as text. Plain two-column CSVs
+    (<code>Name,Phone</code> / <code>Name;Phone</code> / TSV) and header rows are recognised too.
+    vCard 3.0 is supported, including FN/N fallbacks, multiple TEL/EMAIL lines, folded lines,
+    escaped characters and quoted-printable values. Click a row to see its raw entry; edit, delete
+    or add contacts in the table, and the output regenerates from the edited list. No data ever leaves
+    your computer.
+    <div class="footmeta">
+      <span>vCard &#8646; CSV Studio</span>
+      <span class="spacer"></span>
+      <span title="No uploads, no tracking; all parsing happens in your browser">&#128274; 100% offline: nothing is uploaded</span>
+      <span class="spacer"></span>
+      <nav class="footlinks" aria-label="Pages">
+        <a href="index.html">Convert</a>
+        <a href="compare-vcf.html">Compare vCards</a>
+        <a href="compare-csv.html">Compare CSVs</a>
+      </nav>
+    </div>
+  </footer>
+</div>
+
+<div id="toast" class="toast" role="status"></div>
+
+<script src="assets/lib.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+'use strict';
+var L = window.VCFStudio;
+var el = function (id) { return document.getElementById(id); };
+var src = el('src'), dst = el('dst'),
+  detectBadge = el('detectBadge'), outBadge = el('outBadge'),
+  fileInput = el('fileInput'), fileName = el('fileName'), dropzone = el('dropzone'),
+  msg = el('msg'), inStats = el('inStats'), outStats = el('outStats'),
+  btnToCsv = el('btnToCsv'), btnToVcf = el('btnToVcf'),
+  optPerPhone = el('optPerPhone'), optMerge = el('optMerge'),
+  headSel = el('headSel');
+
+var state = { inFormat: null, dir: null, dirFormat: null, eff: 'csv', msgLock: false, outText: '' };
+function canonicalOut() {
+  var v = dst.value;
+  if (state.outText && state.outText.replace(/\r\n/g, '\n') === v) return state.outText;
+  return v;
+}
+function setMsg(t, text) { msg.hidden = false; msg.className = 'msg ' + t; msg.textContent = text; }
+function clearMsg() { msg.hidden = true; msg.textContent = ''; }
+
+var table = new ContactTable({
+  tbody: el('tbody'), searchBox: el('searchBox'), statsBadge: el('contactStats'),
+  selCount: el('selCount'),
+  dupBtns: { name: el('dupName'), phone: el('dupPhone') },
+  btns: { selectAll: el('btnSelectAll'), clearSel: el('btnClearSel'), deleteSel: el('btnDelSel'), add: el('btnAdd') },
+  pager: { prev: el('pgPrev'), next: el('pgNext'), info: el('pgInfo'), perPage: el('pgSize') },
+  showSource: false,
+  onChange: function () {
+    var f = table.filtered();
+    headSel.checked = f.length > 0 && f.every(function (c) { return table.selected[c.id]; });
+    convert();
+  }
+});
+headSel.addEventListener('change', function () { table.selectFiltered(headSel.checked); });
+
+function updateBadges() {
+  if (state.inFormat === 'vcf') { detectBadge.textContent = 'vCard 3.0'; detectBadge.classList.add('on'); }
+  else if (state.inFormat === 'csv') { detectBadge.textContent = 'CSV'; detectBadge.classList.add('on'); }
+  else { detectBadge.textContent = '—'; detectBadge.classList.remove('on'); }
+}
+
+function refreshInput() {
+  var raw = src.value;
+  state.inFormat = L.detectFormat(raw);
+  if (state.dir && state.dirFormat && state.inFormat !== state.dirFormat) { state.dir = null; state.dirFormat = null; }
+  state.msgLock = false;
+  updateBadges();
+  inStats.textContent = raw ? raw.split(/\r\n|\r|\n/).length + ' lines · ' + raw.length.toLocaleString() + ' chars' : '';
+  if (!raw.trim()) { clearMsg(); table.setContacts([]); convert(); return; }
+  var list;
+  try { list = L.parseInput(raw, { merge: optMerge.checked }); }
+  catch (e) { state.msgLock = true; setMsg('err', 'Could not read the input: ' + ((e && e.message) ? e.message : e)); table.setContacts([]); dst.value = ''; outBadge.textContent = '—'; outBadge.classList.remove('on'); outStats.textContent = ''; return; }
+  if (!list.length) { state.msgLock = true; setMsg('warn', 'No contacts found. Check that the input is a .vcf (BEGIN:VCARD … END:VCARD) or a CSV with name + number rows.'); }
+  table.setContacts(list);
+  convert();
+}
+function convert() {
+  var contacts = table.getContacts();
+  var eff = state.dir || (state.inFormat === 'vcf' ? 'csv' : 'vcf');
+  state.eff = eff;
+  btnToCsv.classList.toggle('active', eff === 'csv');
+  btnToVcf.classList.toggle('active', eff === 'vcf');
+  if (!contacts.length) {
+    dst.value = ''; state.outText = ''; outBadge.textContent = '—'; outBadge.classList.remove('on'); outStats.textContent = '';
+    if (!state.msgLock) clearMsg();
+    return;
+  }
+  try {
+    var text = (eff === 'csv')
+      ? L.contactsToCSV(contacts, { perPhone: optPerPhone.checked })
+      : L.contactsToVCF(contacts);
+    dst.value = text; state.outText = text;
+  } catch (e) { state.msgLock = true; setMsg('err', 'Conversion failed: ' + ((e && e.message) ? e.message : e)); dst.value = ''; state.outText = ''; return; }
+  if (!state.msgLock) {
+    var note = '';
+    if (eff === 'csv') {
+      var emails = contacts.reduce(function (n, c) { return n + c.emails.length; }, 0);
+      var extra = contacts.reduce(function (n, c) { return n + c.extras.length; }, 0);
+      if (emails || extra) {
+        var bits = [];
+        if (emails) bits.push(emails + ' email' + (emails > 1 ? 's' : ''));
+        if (extra) bits.push(extra + ' other field' + (extra > 1 ? 's' : ''));
+        note = 'This CSV format stores one name + one phone per row, so ' + bits.join(' and ')
+          + ' were left out of the CSV — they are still listed in the table.';
+      }
+      if (!optPerPhone.checked) {
+        var skipped = contacts.reduce(function (n, c) { return n + Math.max(0, c.phones.length - 1); }, 0);
+        if (skipped) note += (note ? ' ' : '') + skipped + ' extra phone number' + (skipped > 1 ? 's' : '') + ' omitted because "one row per phone" is off.';
+      }
+    } else {
+      var orphaned = contacts.reduce(function (n, c) {
+        return n + c.extras.filter(function (e) { return /^column \d+/.test(e.key); }).length;
+      }, 0);
+      if (orphaned) note = orphaned + ' extra CSV column value' + (orphaned > 1 ? 's' : '') + ' (labels/notes) are not part of the vCard and were not written.';
+    }
+    if (note) setMsg('info', note); else clearMsg();
+  }
+  outBadge.textContent = eff === 'csv' ? 'CSV' : 'vCard 3.0';
+  outBadge.classList.add('on');
+  outStats.textContent = dst.value.split(/\r\n|\r|\n/).length + ' lines';
+}
+
+/* ---- events ---- */
+var deb = null;
+src.addEventListener('input', function () { clearTimeout(deb); deb = setTimeout(refreshInput, 250); });
+optPerPhone.addEventListener('change', convert);
+optMerge.addEventListener('change', refreshInput);
+btnToCsv.addEventListener('click', function () { state.dir = 'csv'; state.dirFormat = state.inFormat; convert(); });
+btnToVcf.addEventListener('click', function () { state.dir = 'vcf'; state.dirFormat = state.inFormat; convert(); });
+
+var SAMPLE_VCF = ['BEGIN:VCARD', 'VERSION:3.0',
+  'FN:Amina Haddad', 'N:Haddad;Amina;;;', 'TEL;TYPE=CELL:+216 98 254 731', 'EMAIL;TYPE=INTERNET:amina.h@example.com', 'ORG:Sfax Logistics', 'CATEGORIES:clients', 'END:VCARD',
+  'BEGIN:VCARD', 'VERSION:3.0', 'FN:Tarek Khalil', 'N:Khalil;Tarek;;;', 'TEL;TYPE=CELL:+33 6 12 88 45 09', 'END:VCARD',
+  'BEGIN:VCARD', 'VERSION:3.0', 'FN:Lena Fischer', 'N:Fischer;Lena;;;', 'TEL;TYPE=CELL:+49 151 2233 4455', 'TEL;TYPE=HOME:+49 30 998 212', 'EMAIL;TYPE=INTERNET:lena.f@example.com', 'END:VCARD',
+  'BEGIN:VCARD', 'VERSION:3.0', 'FN:Jonas Weber', 'N:Weber;Jonas;;;', 'TEL;TYPE=CELL:+49 151 2233 4455', 'END:VCARD',
+  'BEGIN:VCARD', 'VERSION:3.0', 'FN:Tarek Khalil', 'N:Khalil;Tarek;;;', 'TEL;TYPE=CELL:+216 22 774 190', 'END:VCARD',
+  'BEGIN:VCARD', 'VERSION:3.0', 'FN:Priya Nair', 'N:Nair;Priya;;;', 'TEL;TYPE=CELL:+91 98450 33221', 'EMAIL;TYPE=INTERNET:priya@example.com', 'END:VCARD'].join('\n');
+var SAMPLE_CSV = ['"Amina Haddad,=""21698254731"""',
+  '"Tarek Khalil,=""33612884509"""',
+  '"Lena Fischer,=""4915122334455"""',
+  '"Jonas Weber,=""4915122334455"""',
+  '"Tarek K.,=""21622774190"""',
+  '"Priya Nair,=""919845033221"""'].join('\n');
+
+function readFile(f) {
+  if (f.text) return f.text();
+  return new Promise(function (res, rej) {
+    var r = new FileReader();
+    r.onload = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+    r.readAsText(f, 'UTF-8');
+  });
+}
+function loadFile(f) {
+  if (!f) return;
+  if (src.value.trim() && !window.confirm('The input field already has data — replace it with ' + f.name + '?')) return;
+  readFile(f).then(function (text) {
+    src.value = text;
+    fileName.textContent = f.name + ' · ' + (f.size < 1024 ? f.size + ' B' : (f.size / 1024).toFixed(1) + ' KB');
+    state.dir = null; state.dirFormat = null;
+    refreshInput(); toast('Loaded ' + f.name);
+  }).catch(function (e) { setMsg('err', 'Could not read file: ' + ((e && e.message) ? e.message : e)); state.msgLock = true; });
+}
+fileInput.addEventListener('change', function () { loadFile(fileInput.files && fileInput.files[0]); fileInput.value = ''; });
+['dragenter', 'dragover'].forEach(function (ev) {
+  dropzone.addEventListener(ev, function (e) { e.preventDefault(); dropzone.classList.add('over'); });
+});
+dropzone.addEventListener('dragleave', function (e) { if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('over'); });
+dropzone.addEventListener('drop', function (e) {
+  e.preventDefault(); dropzone.classList.remove('over');
+  loadFile(e.dataTransfer.files && e.dataTransfer.files[0]);
+});
+el('sampleVcf').addEventListener('click', function () {
+  src.value = SAMPLE_VCF; fileName.textContent = 'sample.vcf';
+  state.dir = null; state.dirFormat = null; refreshInput(); toast('Sample vCard loaded');
+});
+el('sampleCsv').addEventListener('click', function () {
+  src.value = SAMPLE_CSV; fileName.textContent = 'sample.csv';
+  state.dir = null; state.dirFormat = null; refreshInput(); toast('Sample CSV loaded');
+});
+el('btnClear').addEventListener('click', function () {
+  src.value = ''; dst.value = ''; fileName.textContent = 'or drop a file here, or paste below';
+  state.dir = null; state.dirFormat = null; refreshInput();
+});
+el('btnSwap').addEventListener('click', function () {
+  if (!dst.value.trim()) { toast('Nothing to swap yet'); return; }
+  src.value = dst.value; state.dir = null; state.dirFormat = null; refreshInput(); toast('Output moved to input');
+});
+el('copyBtn').addEventListener('click', function () {
+  if (!dst.value.trim()) { toast('Nothing to copy'); return; }
+  var text = canonicalOut();
+  function done() { toast('Copied to clipboard'); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, function () { dst.select(); document.execCommand('copy'); done(); });
+  } else { dst.select(); try { document.execCommand('copy'); } catch (e) {} done(); }
+});
+el('dlBtn').addEventListener('click', function () {
+  if (!dst.value.trim()) { toast('Nothing to download'); return; }
+  var isCsv = state.eff === 'csv', name = isCsv ? 'contacts.csv' : 'contacts.vcf';
+  var blob = new Blob([canonicalOut()], { type: (isCsv ? 'text/csv' : 'text/vcard') + ';charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+  toast('Saved ' + name);
+});
+
+/* ---- theme ---- */
+var themeBtn = el('themeBtn');
+var mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+function resolvedDark() {
+  var d = document.documentElement.dataset ? document.documentElement.dataset.theme : null;
+  return d ? (d === 'dark') : (mq ? mq.matches : false);
+}
+function applyTheme() {
+  var t = null; try { t = localStorage.getItem('vcfconv-theme'); } catch (e) {}
+  if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+  else if (document.documentElement.dataset) delete document.documentElement.dataset.theme;
+  themeBtn.textContent = resolvedDark() ? '☾' : '☀';
+}
+themeBtn.addEventListener('click', function () {
+  var next = resolvedDark() ? 'light' : 'dark';
+  try { localStorage.setItem('vcfconv-theme', next); } catch (e) {}
+  applyTheme();
+});
+if (mq && mq.addEventListener) mq.addEventListener('change', applyTheme);
+
+/* ---- init ---- */
+applyTheme();
+src.value = SAMPLE_VCF;
+fileName.textContent = 'sample.vcf';
+refreshInput();
+</script>
+</body>
+</html>
