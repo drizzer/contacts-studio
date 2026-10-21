@@ -56,9 +56,13 @@ the page makes no network requests.
 
 ## Testing
 
-- Syntax: `node --check assets/lib.js assets/ui.js assets/compare.js` (run per file).
-- Logic: a Node regression suite exists (parse/convert/round-trip/dedupe checks against
-  fixture samples) — see AGENTS.md "How to verify" for how to re-run or extend it.
+- Syntax: `node --check` takes one file at a time — run it once per file:
+  `node --check assets/lib.js`, then `assets/ui.js`, then `assets/compare.js`.
+- Logic: **there is no committed regression suite yet.** `AGENTS.md` "How to verify"
+  describes the checks to make and the fixtures to make them against; they become
+  `tests/test.js`, run with `node tests/test.js`, in v1.1 P0. Until then a change to
+  `assets/lib.js` is verified by writing a throwaway script that requires it and asserts
+  those same cases — and that throwaway script is precisely what v1.1 P0 commits.
 - UI: open each page in a browser; every table interaction (inline edits, pills,
   selection, filters, pagination, modals) is scriptable via devtools/automation.
 
@@ -70,6 +74,10 @@ compare-vcf.html    Compare vCards page
 compare-csv.html    Compare CSVs page
 AGENTS.md           guide for AI agents working on this codebase
 FUTURE-PLANS.md     roadmap (proposed / accepted / declined ideas)
+LICENSE-THIRD-PARTY.md  register of vendored assets and their licence notices
+docs/DECISIONS.md   decision records: why the site and tool are shaped this way
+docs/LEGAL.md       what the comparison and legal pages may claim, and the sources
+docs/KANBAN.md      GitHub Projects board setup and sync rules
 assets/style.css    shared styles (light + dark themes)
 assets/lib.js       parsing / conversion core (VCFStudio namespace)
 assets/ui.js        shared contacts table (selection, inline edits, pagination)

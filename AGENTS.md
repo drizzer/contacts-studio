@@ -2,8 +2,16 @@
 
 Guidance for AI agents (or humans) picking this project up in a fresh session.
 Read this before changing anything; it documents invariants that are easy to break
-and hard to rediscover. Feature roadmap lives in `FUTURE-PLANS.md` — check it
-before proposing ideas, and update it when scope changes.
+and hard to rediscover. The feature roadmap lives in `FUTURE-PLANS.md`: a versioned
+release calendar (semver minors, one theme per release) with per-release priorities,
+exit criteria and a release checklist at the end. Check it before proposing ideas, and
+update it when scope changes.
+
+Three supporting documents sit in `docs/`: `DECISIONS.md` (why the site and the tool are
+shaped the way they are, with the rejected alternatives), `LEGAL.md` (what the public pages
+may claim, with the legal sources) and `KANBAN.md` (how the GitHub Projects board is built
+and when it syncs). Read the matching one before changing a decision it records — they are
+append-only records, not scratch notes.
 
 ## What this is
 
@@ -91,6 +99,17 @@ warning about that omission instead of dropping it silently.
     want absolute; see README Publish).
 12. **`name` attributes on slot textareas** silence a DevTools a11y advisory; keep
     them when regenerating slots.
+13. **No external SVG sprite.** `<use href="assets/icons.svg#id">` is a cross-document
+    reference that browsers treat as a CORS-governed fetch, and Chrome blocks it from
+    `file://` — the icons disappear in the exact mode this project tests first. Inline the
+    `<symbol>` block into each page and reference `<use href="#id">`. Same reason a runtime
+    `fetch()` of the sprite is not an option: a local fetch is still a network-layer request.
+    Rationale: `docs/DECISIONS.md` D-002.
+14. **Icons and tokens are governed, not improvised.** New icons come from the vendored
+    Lucide subset and are registered in `LICENSE-THIRD-PARTY.md`; CSS variables follow the
+    alias block in D-003, where shadcn's `--accent` means *hover surface*, not the brand teal
+    (`--primary` here). Renaming tokens across all three theme blocks is a visual change and
+    needs a before/after screenshot of every page in both themes.
 
 ## How to verify (do after any change)
 
